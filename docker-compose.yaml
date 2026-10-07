@@ -1,0 +1,124 @@
+version: '3.8'
+
+services:
+  es-data-01:
+    image: elasticsearch:9.5.1
+    container_name: es-data-01
+    network_mode: host 
+    environment:
+      - cluster.name=data-cluster
+      - node.name=es-data-01
+      - node.roles=data,ingest
+      - discovery.seed_hosts=127.0.0.1:9300 
+      - http.port=9201                      
+      - transport.port=9301                  
+      - xpack.security.enabled=false         
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    healthcheck:
+      test: ["CMD-SHELL", "systemctl is-active --quiet elasticsearch.service"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    volumes:
+      - esdata01:/usr/share/elasticsearch/data
+
+  es-data-02:
+    image: elasticsearch:9.5.1
+    container_name: es-data-02
+    network_mode: host
+    environment:
+      - cluster.name=data-cluster
+      - node.name=es-data-02
+      - node.roles=data,ingest
+      - discovery.seed_hosts=127.0.0.1:9300
+      - http.port=9202
+      - transport.port=9302
+      - xpack.security.enabled=false
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    healthcheck:
+      test: ["CMD-SHELL", "systemctl is-active --quiet elasticsearch.service"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+      
+    volumes:
+      - esdata02:/usr/share/elasticsearch/data
+  logstash:
+    image: logstash:8.19.22
+    container_name: logstash
+    network_mode: host    
+    volumes:
+      - ./logstash/config/pipelines.yml:/usr/share/logstash/config/pipelines.yml:ro
+      - ./logstash/pipeline:/usr/share/logstash/pipeline
+      - ./archive/customers_lookup.csv:/usr/share/logstash/pipeline/customers.csv
+
+    healthcheck:
+      test: ["CMD-SHELL", "systemctl is-active --quiet elasticsearch.service"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    environment:
+      - LS_JAVA_OPTS=-Xms512m -Xmx512m
+      - XPACK_MONITORING_ELASTICSEARCH_HOSTS=["http://127.0.0.1:9200"]
+      - LOG_LEVEL=error
+
+  kibana:
+    image: kibana:8.15.0
+    container_name: kibana
+    network_mode: host
+    healthcheck:
+      test: ["CMD-SHELL", "systemctl is-active --quiet elasticsearch.service"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    environment:
+      - ELASTICSEARCH_HOSTS=http://localhost:9200
+  spark:
+    #build: ./Spark/.
+    image: spark_pipeline:latest
+    container_name: spark
+    network_mode: host
+    healthcheck:
+      test: [ "CMD-SHELL", "systemctl is-active --quiet elasticsearch.service" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    environment:
+      SPARK_MODE: driver
+      ES_NODES: "localhost"
+      ES_PORT: 9200
+    volumes:
+      - spark:/opt/spark-app
+      - ./Spark/main.py:/app/main.py
+    command: >
+      bash -c "spark-submit
+      --master local[2]
+      --packages org.elasticsearch:elasticsearch-spark-30_2.12:8.12.0
+      main.py"
+volumes:
+  esdata01:
+  esdata02:
+  spark:
+
+  ##According to the systemd standard specification, systemctl status returns specific exit codes based on the state of the service:
+  #0: Program is running or service is OK (active)
+  #1: Program is dead and /var/run pid file exists
+  #2: Program is dead, but /var/lock lock file exists
+ # 3: Program is not running (inactive or stopped)
+ #4: Program or service is unknown / not found
+  ##

@@ -1,0 +1,1 @@
+FROM spark_pipeline:latest

@@ -1,0 +1,6 @@
+- pipeline.id: elasticsearch
+  path.config: "/usr/share/logstash/pipeline/elasticsearch.conf"
+- pipeline.id: ventes
+  path.config: "/usr/share/logstash/pipeline/ventes.conf"
+- pipeline.id: customers
+  path.config: "/usr/share/logstash/pipeline/customers.conf"

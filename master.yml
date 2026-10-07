@@ -1,0 +1,33 @@
+cluster.name: data-cluster
+node.name: bare-metal-master
+path.data: /var/lib/elasticsearch
+path.logs: /var/log/elasticsearch
+cluster.initial_master_nodes:
+  - bare-metal-master
+node.roles: [ master, data_hot, data_content, ingest ]
+
+http.port: 9200
+
+
+xpack.security.enabled: false
+
+xpack.security.enrollment.enabled: true
+
+xpack.security.http.ssl:
+  enabled: true
+  keystore.path: certs/http.p12
+
+xpack.security.transport.ssl:
+  enabled: false
+  verification_mode: certificate
+  keystore.path: certs/transport.p12
+  truststore.path: certs/transport.p12
+
+http.host: 0.0.0.0
+transport.port: 9300
+discovery.seed_hosts:
+  - 127.0.0.1:9300
+  - 127.0.0.1:9301
+  - 127.0.0.1:9302
+transport.host: 0.0.0.0
+
